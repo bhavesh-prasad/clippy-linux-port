@@ -204,8 +204,11 @@ class DbusMenu:
                 if not child.visible:
                     continue
                 child_tuple = self._serialize(child, next_depth, names)
-                children.append(
-                    GLib.Variant("v", GLib.Variant("(ia{sv}av)", child_tuple)))
+                # Each `av` element is the (ia{sv}av) variant itself. Do NOT wrap it in
+                # an extra `v` — Python's .unpack() tolerates that, but GJS's
+                # deep_unpack() (used by the GNOME AppIndicator extension) does not, and
+                # the menu silently fails to render.
+                children.append(GLib.Variant("(ia{sv}av)", child_tuple))
         return (item.id, props, children)
 
     # -- D-Bus handlers --------------------------------------------------

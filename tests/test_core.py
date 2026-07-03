@@ -124,6 +124,26 @@ class DbusMenuTreeTest(unittest.TestCase):
         parent = MenuItem("P", children=[MenuItem("c")])
         self.assertEqual(parent.properties()["children-display"].get_string(), "submenu")
 
+    def test_getlayout_child_wire_shape(self):
+        """Regression: each `av` child must contain a bare (ia{sv}av), not a nested v.
+
+        GJS's deep_unpack() (GNOME AppIndicator extension) throws on the double-wrapped
+        form, so the menu silently fails to render. Python's .unpack() hides the bug,
+        which is why this asserts on the raw GLib.Variant types.
+        """
+        from gi.repository import GLib
+        from clipy.sni.dbusmenu import DbusMenu, MenuItem
+        menu = DbusMenu()
+        menu.set_root(MenuItem(children=[MenuItem("A"), MenuItem("B")]))
+        # Build the GetLayout reply exactly as the D-Bus handler does.
+        layout = menu._serialize(menu.root, -1, None)
+        reply = GLib.Variant("(u(ia{sv}av))", (menu.revision, layout))
+        children = reply.get_child_value(1).get_child_value(2)  # the `av`
+        self.assertGreater(children.n_children(), 0)
+        element = children.get_child_value(0)
+        self.assertEqual(element.get_type_string(), "v")
+        self.assertEqual(element.get_variant().get_type_string(), "(ia{sv}av)")
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -1,3 +1,13 @@
+clipy (0.1.2) noble; urgency=medium
+
+  * Fix: tray menu did not open on click. The dbusmenu GetLayout serialized each
+    child menu item double-wrapped in an extra variant. Python's .unpack() tolerated
+    it, but the GNOME AppIndicator extension uses GJS deep_unpack(), which threw
+    "TypeError: (destructured parameter) is not iterable" and rendered no menu.
+    Children are now emitted as plain (ia{sv}av) variants, matching real indicators.
+
+ -- Bhavesh Prasad <prasadbhavesh7@gmail.com>  Fri, 03 Jul 2026 13:00:00 +0000
+
 clipy (0.1.1) noble; urgency=medium
 
   * Fix: tray icon did not appear. The StatusNotifierItem was registered by bus
