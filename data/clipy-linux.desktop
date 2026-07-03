@@ -1,0 +1,12 @@
+[Desktop Entry]
+Type=Application
+Name=Clipy
+GenericName=Clipboard Manager
+Comment=Clipboard history and snippets in your tray
+# Fix this path to point at your checkout's bin/clipy-linux
+Exec=clipy-linux
+Icon=edit-paste
+Terminal=false
+Categories=Utility;GTK;
+Keywords=clipboard;history;snippets;paste;
+StartupNotify=false

@@ -96,11 +96,24 @@ We implement two D-Bus objects with Gio:
 Snippets submenu (folders → items), then Clear History / Snippets… / Preferences… /
 Quit. Rebuilds emit `LayoutUpdated` so the extension refreshes.
 
-## Clipboard access without CLI tools
+## Clipboard access without CLI tools — and the Wayland focus problem
 
-GTK talks to the compositor directly, so `Gdk.Display.get_clipboard()` reads/writes the
-clipboard with no `wl-clipboard`/`xclip`. Text via `read_text_async`; images via
-`read_texture_async`, stored as PNG bytes. A hidden GTK app keeps a Gdk display alive.
+GTK reads/writes the clipboard directly via `Gdk.Display.get_clipboard()` (text with
+`read_text_async`, images with `read_texture_async` → PNG bytes), so no
+`wl-clipboard`/`xclip` is needed.
+
+**Critical constraint:** on GNOME Wayland (Mutter 46) a background app **cannot** read
+the clipboard — native `wl_data_device` access requires keyboard focus, and Mutter
+exposes **no** `wlr-data-control`/`ext-data-control` protocol for clipboard managers
+(verified on the target machine). A tray app never has focus, so pure-Wayland monitoring
+is impossible here.
+
+**Solution (verified):** run the app under **XWayland** by forcing `GDK_BACKEND=x11`.
+X11 clients read the `CLIPBOARD` selection without focus (XFixes selection-notify), and
+Mutter **bridges** native Wayland copies into the XWayland selection. Tested end to end:
+both X11→X11 and Wayland-copy→X11-read captured with no focus. The D-Bus tray and
+gsettings hotkeys are display-agnostic, so forcing x11 costs nothing. The launcher and
+`__main__` set `GDK_BACKEND=x11` (overridable). On a native X11 session this is a no-op.
 
 ## Global hotkeys on Wayland
 
