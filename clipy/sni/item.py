@@ -107,7 +107,10 @@ class StatusNotifierItem:
     def _register_with_watcher(self) -> None:
         if not self._conn:
             return
-        service = self._conn.get_unique_name()
+        # Register by OBJECT PATH, not bus name. The watcher then derives the sender and
+        # records "<busname>@<path>", so our item is found even at a non-standard path.
+        # Passing the bus name instead makes hosts look at /StatusNotifierItem and miss us.
+        service = self.object_path
         self._conn.call(
             WATCHER_NAME, WATCHER_PATH, WATCHER_NAME,
             "RegisterStatusNotifierItem", GLib.Variant("(s)", (service,)),
@@ -117,8 +120,10 @@ class StatusNotifierItem:
     def _finish_register(self, src, res) -> None:
         try:
             src.call_finish(res)
-        except GLib.Error:
-            pass  # no watcher yet; the name-watch will retry when it appears
+        except GLib.Error as exc:
+            # No watcher yet, or it rejected us; the name-watch retries when it appears.
+            print(f"[clipy] StatusNotifierItem registration failed: {exc}",
+                  file=__import__("sys").stderr)
 
     def set_icon(self, icon_name: str) -> None:
         self.icon_name = icon_name

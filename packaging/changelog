@@ -1,3 +1,13 @@
+clipy (0.1.1) noble; urgency=medium
+
+  * Fix: tray icon did not appear. The StatusNotifierItem was registered by bus
+    name, which makes hosts look for the item at /StatusNotifierItem; ours lives
+    at a custom path. Now registered by object path (busname@path form), matching
+    what the GNOME AppIndicator extension expects. Registration errors are now
+    logged instead of silently ignored.
+
+ -- Bhavesh Prasad <prasadbhavesh7@gmail.com>  Fri, 03 Jul 2026 12:00:00 +0000
+
 clipy (0.1.0) noble; urgency=low
 
   * Initial release: Linux clone of the macOS Clipy clipboard manager.
