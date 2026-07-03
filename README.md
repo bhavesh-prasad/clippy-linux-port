@@ -33,21 +33,55 @@ Already present on a standard Ubuntu 24.04 GNOME install:
 Optional, only for **auto-paste after selecting** (otherwise the entry is placed on the
 clipboard and you press Ctrl+V yourself): `ydotool` (Wayland) or `python3-xlib` (X11).
 
-## Run
+## Install (.deb package)
+
+Build the package (no root, no extra tooling needed — just `dpkg-deb`, which ships with
+Debian/Ubuntu):
 
 ```bash
-./bin/clipy-linux
+packaging/build-deb.sh          # produces dist/clipy_0.1.0_all.deb
+```
+
+Install it — double-click it in the Software app, or:
+
+```bash
+sudo apt install ./dist/clipy_0.1.0_all.deb
+```
+
+`apt` pulls in the dependencies (`python3-gi`, `gir1.2-gtk-4.0`, …; all preinstalled on
+Ubuntu GNOME) and adds a **Clipy** entry to your app grid plus a `clipy` command. Launch
+it from the app grid or run `clipy`. Uninstall with:
+
+```bash
+sudo apt remove clipy
+```
+
+(This leaves your history/settings and GNOME shortcuts in place; see **Uninstall / reset**
+below to remove those too.)
+
+## Run
+
+Once installed, start it from the app grid or:
+
+```bash
+clipy
 ```
 
 That starts the background daemon and puts the clipboard icon in your top bar. Run it
 again with an action to drive the running instance (this is what the hotkeys do):
 
 ```bash
-./bin/clipy-linux --action history      # searchable history pop-up
-./bin/clipy-linux --action snippets     # snippet picker
-./bin/clipy-linux --action menu         # main menu (history pop-up)
-./bin/clipy-linux --action preferences  # preferences
-./bin/clipy-linux --action quit         # stop the daemon
+clipy --action history      # searchable history pop-up
+clipy --action snippets     # snippet picker
+clipy --action menu         # main menu (history pop-up)
+clipy --action preferences  # preferences
+clipy --action quit         # stop the daemon
+```
+
+### Run from source (without installing)
+
+```bash
+./bin/clipy-linux            # same commands, add --action … as above
 ```
 
 ### The Wayland clipboard note (important)
@@ -78,21 +112,11 @@ Change them in **Preferences → Shortcuts** (GNOME accelerator syntax, e.g.
 Toggle **Preferences → General → Launch at login**, or run once and enable it. This writes
 `~/.config/autostart/clipy-linux.desktop`.
 
-## Install (optional)
-
-To run it as `clipy-linux` from anywhere:
-
-```bash
-ln -s "$(pwd)/bin/clipy-linux" ~/.local/bin/clipy-linux   # ensure ~/.local/bin is on PATH
-```
-
-A desktop launcher for the app grid is in `data/clipy-linux.desktop` — copy it to
-`~/.local/share/applications/` and fix its `Exec=`/`Icon=` paths.
-
 ## Uninstall / reset
 
 ```bash
-./bin/clipy-linux --action quit                 # stop the daemon
+clipy --action quit                             # stop the daemon
+sudo apt remove clipy                           # remove the package (if installed via .deb)
 python3 -c "from clipy import hotkeys; hotkeys.clear()"   # remove GNOME shortcuts
 rm -f ~/.config/autostart/clipy-linux.desktop   # disable autostart
 rm -rf ~/.local/share/clipy-linux ~/.config/clipy-linux   # data + settings

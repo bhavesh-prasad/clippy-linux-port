@@ -1,0 +1,11 @@
+[Desktop Entry]
+Type=Application
+Name=Clipy
+GenericName=Clipboard Manager
+Comment=Clipboard history and snippets in your tray
+Exec=clipy
+Icon=clipy
+Terminal=false
+Categories=Utility;GTK;
+Keywords=clipboard;history;snippets;paste;
+StartupNotify=false

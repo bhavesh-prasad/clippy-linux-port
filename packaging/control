@@ -1,0 +1,19 @@
+Package: clipy
+Version: 0.1.0
+Architecture: all
+Maintainer: Bhavesh Prasad <prasadbhavesh7@gmail.com>
+Section: utils
+Priority: optional
+Depends: python3 (>= 3.10), python3-gi, gir1.2-gtk-4.0, gir1.2-glib-2.0, libglib2.0-bin
+Recommends: gnome-shell-extension-appindicator
+Suggests: ydotool, python3-xlib
+Homepage: https://github.com/Clipy/Clipy
+Description: Clipboard history and snippets manager for the system tray
+ Clipy for Linux is a faithful clone of the macOS menu-bar app Clipy. It lives
+ in the system tray and provides clipboard history (text and images) and
+ reusable text snippets, reachable from the tray menu, global hotkeys, and
+ searchable pop-up windows.
+ .
+ Built with GTK4 (PyGObject) and D-Bus. The tray is a hand-rolled
+ StatusNotifierItem, so no libappindicator is required. On GNOME Wayland the app
+ runs under XWayland so it can monitor the clipboard without keyboard focus.

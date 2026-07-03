@@ -95,7 +95,7 @@ class ClipyApplication(Gtk.Application):
                 self.dbusmenu,
                 item_id="clipy",
                 title=APP_NAME,
-                icon_name="edit-paste",
+                icon_name=self._tray_icon_name(),
                 tooltip="Clipy — clipboard manager",
                 object_path="/org/clipy/Linux/StatusNotifierItem",
                 on_activate=self.show_history,
@@ -105,6 +105,18 @@ class ClipyApplication(Gtk.Application):
             self.rebuild_menu()
         except Exception as exc:  # tray is best-effort; app still works via hotkeys
             print(f"[clipy] tray setup failed: {exc}", file=sys.stderr)
+
+    def _tray_icon_name(self) -> str:
+        """Use our packaged 'clipy' icon when installed; fall back to a themed icon."""
+        try:
+            display = Gdk.Display.get_default()
+            if display is not None:
+                theme = Gtk.IconTheme.get_for_display(display)
+                if theme.has_icon("clipy"):
+                    return "clipy"
+        except Exception:
+            pass
+        return "edit-paste"
 
     def rebuild_menu(self) -> None:
         if not self.dbusmenu or not self.store or not self.settings:

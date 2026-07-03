@@ -1,0 +1,11 @@
+#!/usr/bin/env bash
+# Clipy launcher (installed as /usr/bin/clipy by the .deb).
+# Forces the XWayland GDK backend so clipboard monitoring works without focus on
+# GNOME Wayland, then runs the app from its system install location.
+set -euo pipefail
+
+export PYTHONPATH="/usr/share/clipy${PYTHONPATH:+:$PYTHONPATH}"
+export GDK_BACKEND="${GDK_BACKEND:-x11}"
+export CLIPY_LAUNCHER="/usr/bin/clipy"
+
+exec python3 -m clipy "$@"

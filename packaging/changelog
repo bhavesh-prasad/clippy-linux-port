@@ -1,0 +1,8 @@
+clipy (0.1.0) noble; urgency=low
+
+  * Initial release: Linux clone of the macOS Clipy clipboard manager.
+    Clipboard history (text + images), snippets with folders, tray icon
+    (StatusNotifierItem + dbusmenu), global hotkeys via GNOME custom shortcuts,
+    searchable pop-ups, preferences, and launch-at-login. GTK4 / PyGObject.
+
+ -- Bhavesh Prasad <prasadbhavesh7@gmail.com>  Fri, 03 Jul 2026 00:00:00 +0000

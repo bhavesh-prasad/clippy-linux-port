@@ -1,0 +1,17 @@
+#!/bin/sh
+# Refresh caches after removal. Per-user data (~/.local/share/clipy-linux),
+# settings, autostart entry, and GNOME custom shortcuts are intentionally left in
+# place; the running instance should be stopped with `clipy --action quit` first,
+# and users can remove their data as described in the README.
+set -e
+
+if [ "$1" = "remove" ] || [ "$1" = "purge" ]; then
+    if command -v gtk-update-icon-cache >/dev/null 2>&1; then
+        gtk-update-icon-cache -q -t -f /usr/share/icons/hicolor 2>/dev/null || true
+    fi
+    if command -v update-desktop-database >/dev/null 2>&1; then
+        update-desktop-database -q /usr/share/applications 2>/dev/null || true
+    fi
+fi
+
+exit 0
