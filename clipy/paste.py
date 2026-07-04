@@ -12,6 +12,14 @@ import subprocess
 
 
 def send_paste() -> bool:
+    # Preferred: XTEST via libX11/libXtst (ctypes, zero install) — reaches the focused
+    # window on X11/XWayland and, on Mutter, native Wayland windows too.
+    try:
+        from . import x11
+        if x11.synth_paste():
+            return True
+    except Exception:
+        pass
     if _ydotool():
         return True
     if _xtest():

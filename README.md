@@ -35,8 +35,10 @@ Already present on a standard Ubuntu 24.04 GNOME install:
 - PyGObject with GTK 4 (`python3-gi`, `gir1.2-gtk-4.0`) — preinstalled on Ubuntu GNOME
 - A StatusNotifier host — Ubuntu's AppIndicator GNOME extension, enabled by default
 
-Optional, only for **auto-paste after selecting** (otherwise the entry is placed on the
-clipboard and you press Ctrl+V yourself): `ydotool` (Wayland) or `python3-xlib` (X11).
+**Auto-paste after selecting** works out of the box: choosing an entry places it on the
+clipboard and synthesises Ctrl+V into the app you were in, via XTEST (`libX11`/`libXtst`,
+already present under XWayland). Turn it off in **Preferences → General**. `ydotool` is
+used as a fallback if present.
 
 ## Install (.deb package)
 

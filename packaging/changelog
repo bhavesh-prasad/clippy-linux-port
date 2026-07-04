@@ -1,3 +1,13 @@
+clipy (0.2.1) noble; urgency=medium
+
+  * Auto-paste on select now actually pastes. Selecting a history/snippet entry
+    sets the clipboard and synthesises Ctrl+V into the previously focused window via
+    XTEST (libX11/libXtst through ctypes — zero installs, works under XWayland and,
+    on Mutter, native Wayland windows). Deferred ~140ms so focus returns to the
+    target app first. Falls back to ydotool if present. Toggle in General prefs.
+
+ -- Bhavesh Prasad <prasadbhavesh7@gmail.com>  Sat, 04 Jul 2026 12:00:00 +0000
+
 clipy (0.2.0) noble; urgency=medium
 
   * Feature parity pass toward the macOS Clipy:

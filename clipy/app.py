@@ -268,12 +268,19 @@ class ClipyApplication(Gtk.Application):
                 self._try_paste()
 
     def _try_paste(self) -> None:
-        """Best-effort auto-paste (Ctrl+V). Only reliable for X11/XWayland targets."""
-        try:
-            from .paste import send_paste
-            send_paste()
-        except Exception:
-            pass  # clipboard is set regardless; user can paste manually
+        """Auto-paste (Ctrl+V) into the target app after focus leaves our popup.
+
+        Deferred slightly so the popup is gone and focus has returned to the app the
+        user was in; otherwise the synthesised Ctrl+V would land on the popup.
+        """
+        def do_paste() -> bool:
+            try:
+                from .paste import send_paste
+                send_paste()
+            except Exception:
+                pass  # clipboard is set regardless; user can paste manually
+            return False
+        GLib.timeout_add(140, do_paste)
 
     def clear_history(self) -> None:
         if not self.store:

@@ -53,8 +53,34 @@ def _lib():
     X.XGetInputFocus.argtypes = [
         ctypes.c_void_p, ctypes.POINTER(ctypes.c_ulong), ctypes.POINTER(ctypes.c_int)]
     X.XGetClassHint.argtypes = [ctypes.c_void_p, ctypes.c_ulong, ctypes.POINTER(_XClassHint)]
+    X.XStringToKeysym.restype = ctypes.c_ulong
+    X.XStringToKeysym.argtypes = [ctypes.c_char_p]
+    X.XKeysymToKeycode.restype = ctypes.c_uint
+    X.XKeysymToKeycode.argtypes = [ctypes.c_void_p, ctypes.c_ulong]
     _X = X
     return X
+
+
+_XTST = None
+
+
+def _xtst():
+    global _XTST
+    if _XTST is not None:
+        return _XTST or None
+    name = ctypes.util.find_library("Xtst")
+    if not name:
+        _XTST = False
+        return None
+    try:
+        lib = ctypes.CDLL(name)
+    except OSError:
+        _XTST = False
+        return None
+    lib.XTestFakeKeyEvent.argtypes = [
+        ctypes.c_void_p, ctypes.c_uint, ctypes.c_int, ctypes.c_ulong]
+    _XTST = lib
+    return lib
 
 
 class _XSetWindowAttributes(ctypes.Structure):
@@ -169,6 +195,39 @@ def active_source_app() -> str | None:
         clip = X.XInternAtom(dpy, b"CLIPBOARD", False)
         owner = X.XGetSelectionOwner(dpy, clip)
         return _wm_class(dpy, owner)
+    finally:
+        _close(dpy)
+
+
+def synth_paste(shift: bool = False) -> bool:
+    """Synthesise Ctrl+V (or Ctrl+Shift+V with ``shift``) via XTEST.
+
+    Reaches the currently focused window. Works for X11/XWayland targets and, on Mutter,
+    native Wayland windows too. Returns False if XTEST/libX11 is unavailable.
+    """
+    X = _lib()
+    Xtst = _xtst()
+    if not X or not Xtst:
+        return False
+    dpy = X.XOpenDisplay(None)
+    if not dpy:
+        return False
+    try:
+        ctrl = X.XKeysymToKeycode(dpy, X.XStringToKeysym(b"Control_L"))
+        shift_kc = X.XKeysymToKeycode(dpy, X.XStringToKeysym(b"Shift_L"))
+        v = X.XKeysymToKeycode(dpy, X.XStringToKeysym(b"v"))
+        if not ctrl or not v:
+            return False
+        Xtst.XTestFakeKeyEvent(dpy, ctrl, 1, 0)
+        if shift:
+            Xtst.XTestFakeKeyEvent(dpy, shift_kc, 1, 0)
+        Xtst.XTestFakeKeyEvent(dpy, v, 1, 0)
+        Xtst.XTestFakeKeyEvent(dpy, v, 0, 0)
+        if shift:
+            Xtst.XTestFakeKeyEvent(dpy, shift_kc, 0, 0)
+        Xtst.XTestFakeKeyEvent(dpy, ctrl, 0, 0)
+        X.XFlush(dpy)
+        return True
     finally:
         _close(dpy)
 
