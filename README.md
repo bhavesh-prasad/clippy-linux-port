@@ -16,10 +16,15 @@ Built with **Python 3 + GTK4 (PyGObject)** and D-Bus. On Ubuntu 24.04 / GNOME it
   snippets submenu in the tray.
 - **Tray icon** — the whole app lives in the GNOME top bar (StatusNotifierItem). Left-click
   opens the menu; the menu holds recent history, snippets, and actions.
-- **Global hotkeys** — pop the history, snippets, or menu from anywhere.
-- **Searchable pop-ups** — type to filter, arrow keys to move, Enter to paste, `1`–`9` for
-  quick pick, `Delete` to remove a history entry, `Esc` to close.
-- **Preferences** — history size, stored types, menu options, hotkeys, launch-at-login.
+- **Compact popup at the cursor** — the history/snippets hotkey opens a small Clipy-style
+  chooser right where your mouse is; type to filter, Enter to paste, `1`–`9` quick-pick.
+- **Global hotkeys** — History `Ctrl+Shift+V`, Snippets `Ctrl+Shift+B`, Menu `Ctrl+Shift+C`.
+- **Type filters** — choose which categories to record: plain text, rich text, files, images.
+- **Menu options** — image thumbnails, numeric keys (from 0 or 1), type icons, show/hide
+  Clear History, reorder-after-paste, inline vs. foldered snippets.
+- **Confirmations** — optional confirm before clearing history or deleting a snippet.
+- **Exclude apps** — skip recording from chosen apps (by window class; X11/XWayland apps).
+- **Preferences** — General, Menu, Type, Shortcuts, Applications tabs; launch-at-login.
 - **Persistence** — history and snippets stored in SQLite under `~/.local/share/clipy-linux/`.
 
 ## Requirements
@@ -96,16 +101,19 @@ anything — just run the launcher.
 ## Global hotkeys
 
 The app registers GNOME custom keyboard shortcuts (via `gsettings`) that invoke
-`clipy-linux --action …`. Defaults mirror Clipy:
+`clipy-linux --action …`. Defaults mirror Clipy's macOS combos (⌘→Ctrl):
 
-| Action   | Default shortcut     |
-|----------|----------------------|
-| History  | `Ctrl+Alt+V`         |
-| Snippets | `Ctrl+Alt+B`         |
-| Menu     | `Ctrl+Alt+C`         |
+| Action   | Default shortcut     | Clipy (macOS) |
+|----------|----------------------|---------------|
+| History  | `Ctrl+Shift+V`       | ⌘⇧V           |
+| Snippets | `Ctrl+Shift+B`       | ⌘⇧B           |
+| Menu     | `Ctrl+Shift+C`       | —             |
 
-Change them in **Preferences → Shortcuts** (GNOME accelerator syntax, e.g.
-`<Control><Alt>v`). They appear under **Settings → Keyboard → Custom Shortcuts**.
+Pressing the history/snippets shortcut opens a **compact popup at the mouse cursor**
+(Clipy-style): type to filter, ↑/↓ to move, Enter to paste, `1`–`9` to quick-pick,
+`Delete` to remove a history entry, `Esc` to close. Change the bindings in
+**Preferences → Shortcuts** (GNOME accelerator syntax, e.g. `<Control><Shift>v`); they
+also appear under **Settings → Keyboard → Custom Shortcuts**.
 
 ## Start automatically at login
 

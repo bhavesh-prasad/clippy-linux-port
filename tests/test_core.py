@@ -63,6 +63,32 @@ class StorageTest(unittest.TestCase):
         self.assertEqual(self.store.history(), [])
 
 
+class TouchTest(unittest.TestCase):
+    def setUp(self):
+        self.dir = tempfile.mkdtemp()
+        self.store = Store(Path(self.dir) / "t.db")
+
+    def tearDown(self):
+        self.store.close()
+
+    def test_touch_moves_to_top(self):
+        a = self.store.add_text("a")
+        self.store.add_text("b")
+        self.store.add_text("c")
+        self.store.touch_history(a.id)  # move "a" back to the top
+        self.assertEqual(self.store.history()[0].text, "a")
+
+
+class ClassifyTest(unittest.TestCase):
+    def test_categories(self):
+        from clipy.clipboard import ClipboardMonitor as M
+        self.assertEqual(M._classify(["image/png"], True), "image")
+        self.assertEqual(M._classify(["text/uri-list", "text/plain"], False), "files")
+        self.assertEqual(M._classify(["text/html", "text/plain"], False), "rich_text")
+        self.assertEqual(M._classify(["text/plain"], False), "text")
+        self.assertEqual(M._classify([], False), "text")
+
+
 class HashTest(unittest.TestCase):
     def test_text_hash_stable(self):
         self.assertEqual(content_hash("text", "x", None),

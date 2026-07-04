@@ -21,9 +21,9 @@ from .storage import Store
 from .config import Settings
 from .sni.dbusmenu import DbusMenu, MenuItem
 from .sni.item import StatusNotifierItem
-from .ui.history_window import HistoryWindow
-from .ui.snippet_window import SnippetWindow, SnippetPicker
+from .ui.snippet_window import SnippetWindow
 from .ui.preferences_window import PreferencesWindow
+from .ui.popup import HistoryPopup, SnippetPopup
 
 AUTOSTART_PATH = config._xdg("XDG_CONFIG_HOME", ".config") / "autostart" / "clipy-linux.desktop"
 
@@ -126,14 +126,24 @@ class ClipyApplication(Gtk.Application):
 
         # History section
         items = self.store.history(s.menu_history_count)
+        start = 0 if s.number_from_zero else 1
         if items:
             children.append(MenuItem("History", enabled=False))
             for idx, item in enumerate(items):
                 label = item.preview(s.max_menu_label_length)
                 if s.add_numeric_keys and idx < 9:
-                    label = f"{idx + 1}. {label}"
+                    label = f"{idx + start}. {label}"
+                icon_name = None
+                icon_data = None
+                if item.kind == "image" and s.show_image_thumbnails and item.image_path:
+                    icon_data = self._thumbnail(item.image_path)
+                    if not icon_data and s.show_menu_icons:
+                        icon_name = "image-x-generic"
+                elif s.show_menu_icons:
+                    icon_name = "image-x-generic" if item.kind == "image" else "text-x-generic"
                 children.append(MenuItem(
-                    label, action=lambda it=item: self.select_history_item(it)))
+                    label, icon_name=icon_name, icon_data=icon_data,
+                    action=lambda it=item: self.select_history_item(it)))
         else:
             children.append(MenuItem("(No history)", enabled=False))
         children.append(MenuItem(separator=True))
@@ -162,13 +172,33 @@ class ClipyApplication(Gtk.Application):
             children.append(MenuItem(separator=True))
 
         # Actions
-        children.append(MenuItem("Clear History…", action=self.clear_history))
+        if s.show_clear_history:
+            children.append(MenuItem("Clear History…", action=self.clear_history))
         children.append(MenuItem("Edit Snippets…", action=self.show_snippets_manager))
         children.append(MenuItem("Preferences…", action=self.show_preferences))
         children.append(MenuItem(separator=True))
         children.append(MenuItem(f"Quit {APP_NAME}", action=self.quit))
 
         self.dbusmenu.set_root(MenuItem(children=children))
+
+    def _thumbnail(self, path: str) -> bytes | None:
+        """Small PNG thumbnail bytes for an image history item (menu icon-data)."""
+        cache = getattr(self, "_thumb_cache", None)
+        if cache is None:
+            cache = self._thumb_cache = {}
+        if path in cache:
+            return cache[path]
+        data = None
+        try:
+            from gi.repository import GdkPixbuf
+            pb = GdkPixbuf.Pixbuf.new_from_file_at_scale(path, 24, 24, True)
+            ok, buf = pb.save_to_bufferv("png", [], [])
+            if ok:
+                data = bytes(buf)
+        except Exception:
+            data = None
+        cache[path] = data
+        return data
 
     def rebuild_menu_soon(self) -> None:
         """Debounced rebuild for rapid edits (e.g. typing a snippet)."""
@@ -183,12 +213,15 @@ class ClipyApplication(Gtk.Application):
         GLib.timeout_add(400, flush)
 
     # -- clipboard flow --------------------------------------------------
-    def _on_capture(self, kind: str, text: str, image_bytes, is_secret: bool) -> None:
+    def _on_capture(self, kind: str, text: str, image_bytes, is_secret: bool,
+                    category: str = "text") -> None:
         if not self.store or not self.settings:
             return
         if is_secret and self.settings.ignore_password_managers:
             return
-        if kind not in self.settings.store_types:
+        if category not in self.settings.store_types:
+            return
+        if self._is_excluded():
             return
         added = None
         if kind == "text":
@@ -200,6 +233,20 @@ class ClipyApplication(Gtk.Application):
             self.rebuild_menu()
             self._refresh_open_history()
 
+    def _is_excluded(self) -> bool:
+        """True if the current source app is on the exclude list (best-effort)."""
+        if not self.settings or not self.settings.exclude_apps:
+            return False
+        try:
+            from . import x11
+            app = x11.active_source_app()
+        except Exception:
+            app = None
+        if not app:
+            return False
+        app_l = app.lower()
+        return any(x.strip().lower() in app_l for x in self.settings.exclude_apps if x.strip())
+
     def select_history_item(self, item) -> None:
         if not self.monitor:
             return
@@ -207,8 +254,12 @@ class ClipyApplication(Gtk.Application):
             self.monitor.set_image_file(item.image_path)
         else:
             self.monitor.set_text(item.text)
-            if self.settings and self.settings.paste_after_select:
-                self._try_paste()
+        if self.settings and self.settings.reorder_after_paste:
+            # Move the chosen entry to the top of the history (Clipy behaviour).
+            self.store.touch_history(item.id)
+            self.rebuild_menu()
+        if self.settings and self.settings.paste_after_select:
+            self._try_paste()
 
     def paste_text(self, text: str) -> None:
         if self.monitor:
@@ -225,10 +276,35 @@ class ClipyApplication(Gtk.Application):
             pass  # clipboard is set regardless; user can paste manually
 
     def clear_history(self) -> None:
-        if self.store:
-            self.store.clear_history()
-            self.rebuild_menu()
-            self._refresh_open_history()
+        if not self.store:
+            return
+        if self.settings and self.settings.confirm_clear_history:
+            self._confirm("Clear all clipboard history?", self._do_clear_history)
+        else:
+            self._do_clear_history()
+
+    def _do_clear_history(self) -> None:
+        self.store.clear_history()
+        self.rebuild_menu()
+
+    def _confirm(self, message: str, on_yes) -> None:
+        """Modal yes/no confirmation (GTK4 AlertDialog)."""
+        try:
+            dialog = Gtk.AlertDialog()
+            dialog.set_message(message)
+            dialog.set_buttons(["Cancel", "OK"])
+            dialog.set_default_button(1)
+            dialog.set_cancel_button(0)
+
+            def done(dlg, res):
+                try:
+                    if dlg.choose_finish(res) == 1:
+                        on_yes()
+                except GLib.Error:
+                    pass
+            dialog.choose(None, None, done)
+        except Exception:
+            on_yes()  # if the dialog API is unavailable, just proceed
 
     # -- windows ---------------------------------------------------------
     def _show_singleton(self, key: str, factory) -> Gtk.Window:
@@ -241,18 +317,28 @@ class ClipyApplication(Gtk.Application):
         return win
 
     def show_history(self) -> None:
-        win = self._show_singleton("history", lambda: HistoryWindow(self))
-        if isinstance(win, HistoryWindow):
-            win.populate()
-        win.present()
+        # Compact popup at the mouse cursor, Clipy-style.
+        self._show_popup(HistoryPopup)
 
     def show_menu(self) -> None:
         # The tray left-click shows the full dbusmenu; the "menu" hotkey opens the
-        # searchable history window (the primary interaction).
+        # history popup at the cursor (the primary interaction).
         self.show_history()
 
     def show_snippets(self) -> None:
-        self._show_singleton("snippet_picker", lambda: SnippetPicker(self)).present()
+        self._show_popup(SnippetPopup)
+
+    def _show_popup(self, factory) -> None:
+        old = self._windows.pop("popup", None)
+        if old is not None:
+            try:
+                old.close()
+            except Exception:
+                pass
+        popup = factory(self)
+        self._windows["popup"] = popup
+        popup.connect("close-request", lambda *_: self._windows.pop("popup", None) and False)
+        popup.show_at_cursor()
 
     def show_snippets_manager(self) -> None:
         self._show_singleton("snippets", lambda: SnippetWindow(self)).present()
@@ -261,9 +347,9 @@ class ClipyApplication(Gtk.Application):
         self._show_singleton("preferences", lambda: PreferencesWindow(self)).present()
 
     def _refresh_open_history(self) -> None:
-        win = self._windows.get("history")
-        if isinstance(win, HistoryWindow) and win.get_realized():
-            win.populate()
+        popup = self._windows.get("popup")
+        if isinstance(popup, HistoryPopup) and popup.get_realized():
+            popup.populate()
 
     # -- settings side effects ------------------------------------------
     def apply_hotkeys(self) -> None:

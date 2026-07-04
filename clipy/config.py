@@ -31,11 +31,21 @@ def ensure_dirs() -> None:
         d.mkdir(parents=True, exist_ok=True)
 
 
-# Default hotkeys mirror Clipy's macOS defaults, mapped to GNOME accelerator syntax.
+# Default hotkeys mirror Clipy's macOS defaults (⌘⇧V / ⌘⇧B), mapped to GNOME syntax.
+# ⌘ maps to Ctrl on Linux; Ctrl+Shift+V does not clash with normal paste.
 DEFAULT_HOTKEYS = {
-    "history": "<Control><Alt>v",
-    "snippets": "<Control><Alt>b",
-    "menu": "<Control><Alt>c",
+    "history": "<Control><Shift>v",
+    "snippets": "<Control><Shift>b",
+    "menu": "<Control><Shift>c",
+}
+
+# Clipboard type categories we can distinguish on Linux, mapped from Clipy's types.
+ALL_STORE_TYPES = ["text", "rich_text", "files", "image"]
+STORE_TYPE_LABELS = {
+    "text": "Plain text",
+    "rich_text": "Rich text (HTML/RTF)",
+    "files": "Files / paths",
+    "image": "Images",
 }
 
 
@@ -43,15 +53,22 @@ DEFAULT_HOTKEYS = {
 class Settings:
     # General
     max_history: int = 30
-    store_types: list[str] = field(default_factory=lambda: ["text", "image"])
+    store_types: list[str] = field(default_factory=lambda: list(ALL_STORE_TYPES))
     launch_at_login: bool = False
     # Menu
     menu_history_count: int = 20  # items shown inline in the tray menu
     max_menu_label_length: int = 40
     add_numeric_keys: bool = True  # 1..9 mnemonics on the first history items
+    number_from_zero: bool = False  # start numbering at 0 instead of 1 (Clipy option)
     inline_snippets: bool = True
+    show_menu_icons: bool = True  # type icon next to each history item
+    show_image_thumbnails: bool = True  # thumbnail for image items in the menu
+    show_clear_history: bool = True  # include the "Clear History" menu item
     # Behaviour
     paste_after_select: bool = True
+    reorder_after_paste: bool = True  # move a selected item to the top after pasting
+    confirm_clear_history: bool = True
+    confirm_delete_snippet: bool = True
     exclude_apps: list[str] = field(default_factory=list)
     ignore_password_managers: bool = True  # skip entries flagged x-kde-passwordManagerHint
     # Hotkeys (GNOME accelerator strings)

@@ -1,3 +1,20 @@
+clipy (0.2.0) noble; urgency=medium
+
+  * Feature parity pass toward the macOS Clipy:
+    - History/snippets now open as a COMPACT POPUP AT THE MOUSE CURSOR (via libX11
+      ctypes under XWayland), replacing the centered window.
+    - Default hotkeys changed to Clipy's combos: History Ctrl+Shift+V,
+      Snippets Ctrl+Shift+B, Menu Ctrl+Shift+C.
+    - Type filters: choose which clipboard categories to store
+      (plain text / rich text / files / images) + new Type preferences tab.
+    - Menu options: image thumbnails in the menu, start-numbering-from-zero,
+      show/hide type icons, show/hide Clear History, reorder-after-paste.
+    - Confirm-before-clear-history and confirm-before-delete-snippet.
+    - Exclude-apps by window class (best-effort; X11/XWayland apps only on GNOME
+      Wayland) + new Applications preferences tab.
+
+ -- Bhavesh Prasad <prasadbhavesh7@gmail.com>  Sat, 04 Jul 2026 10:00:00 +0000
+
 clipy (0.1.2) noble; urgency=medium
 
   * Fix: tray menu did not open on click. The dbusmenu GetLayout serialized each

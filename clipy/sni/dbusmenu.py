@@ -92,6 +92,7 @@ class MenuItem:
         enabled: bool = True,
         visible: bool = True,
         icon_name: str | None = None,
+        icon_data: bytes | None = None,   # PNG bytes → menu thumbnail
         separator: bool = False,
         toggle_type: str = "",       # "" | "checkmark" | "radio"
         toggle_state: int = -1,      # -1 none, 0 off, 1 on
@@ -102,6 +103,7 @@ class MenuItem:
         self.enabled = enabled
         self.visible = visible
         self.icon_name = icon_name
+        self.icon_data = icon_data
         self.separator = separator
         self.toggle_type = toggle_type
         self.toggle_state = toggle_state
@@ -120,6 +122,8 @@ class MenuItem:
             props["visible"] = GLib.Variant("b", False)
         if self.icon_name:
             props["icon-name"] = GLib.Variant("s", self.icon_name)
+        if self.icon_data:
+            props["icon-data"] = GLib.Variant("ay", self.icon_data)
         if self.children:
             props["children-display"] = GLib.Variant("s", "submenu")
         if self.toggle_type:

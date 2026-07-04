@@ -123,6 +123,12 @@ class Store:
         r = self.conn.execute("SELECT * FROM history WHERE id = ?", (item_id,)).fetchone()
         return self._row_to_item(r) if r else None
 
+    def touch_history(self, item_id: int) -> None:
+        """Move an entry to the top of the history (newest) without duplicating it."""
+        self.conn.execute("UPDATE history SET created_at = ? WHERE id = ?",
+                          (time.time(), item_id))
+        self.conn.commit()
+
     def delete_history(self, item_id: int) -> None:
         self.conn.execute("DELETE FROM history WHERE id = ?", (item_id,))
         self.conn.commit()
