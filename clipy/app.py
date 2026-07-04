@@ -57,6 +57,7 @@ class ClipyApplication(Gtk.Application):
 
         self._setup_tray()
         self.apply_hotkeys()
+        self._setup_injector()
         self.hold()  # run as a background daemon
 
     def _capture_initial(self) -> bool:
@@ -105,6 +106,19 @@ class ClipyApplication(Gtk.Application):
             self.rebuild_menu()
         except Exception as exc:  # tray is best-effort; app still works via hotkeys
             print(f"[clipy] tray setup failed: {exc}", file=sys.stderr)
+
+    def _setup_injector(self) -> None:
+        """Set up the RemoteDesktop-portal injector for Wayland-capable auto-paste."""
+        self.injector = None
+        if not (self.settings and self.settings.paste_after_select):
+            return
+        try:
+            from .inject import PortalInjector
+            conn = self.get_dbus_connection() or Gio.bus_get_sync(Gio.BusType.SESSION, None)
+            self.injector = PortalInjector(conn)
+            self.injector.start()  # prompts once, then silent via saved restore token
+        except Exception as exc:
+            print(f"[clipy] injector setup failed: {exc}", file=sys.stderr)
 
     def _tray_icon_name(self) -> str:
         """Use our packaged 'clipy' icon when installed; fall back to a themed icon."""
@@ -275,6 +289,10 @@ class ClipyApplication(Gtk.Application):
         """
         def do_paste() -> bool:
             try:
+                # Portal injection first (reaches native Wayland apps); XTEST fallback
+                # covers X11/XWayland if the portal isn't ready yet.
+                if getattr(self, "injector", None) and self.injector.paste():
+                    return False
                 from .paste import send_paste
                 send_paste()
             except Exception:

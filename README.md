@@ -35,10 +35,12 @@ Already present on a standard Ubuntu 24.04 GNOME install:
 - PyGObject with GTK 4 (`python3-gi`, `gir1.2-gtk-4.0`) — preinstalled on Ubuntu GNOME
 - A StatusNotifier host — Ubuntu's AppIndicator GNOME extension, enabled by default
 
-**Auto-paste after selecting** works out of the box: choosing an entry places it on the
-clipboard and synthesises Ctrl+V into the app you were in, via XTEST (`libX11`/`libXtst`,
-already present under XWayland). Turn it off in **Preferences → General**. `ydotool` is
-used as a fallback if present.
+**Auto-paste after selecting**: choosing an entry places it on the clipboard and pastes
+(Ctrl+V) into the app you were in. To reach **native Wayland** apps this uses the XDG
+**RemoteDesktop portal**, so GNOME shows an "allow remote control" prompt the **first
+time** — approve it once and a saved restore-token keeps it silent afterwards. (XTEST via
+`libX11`/`libXtst` is used as a fallback for X11/XWayland targets.) Turn it off in
+**Preferences → General → "Paste automatically after selecting"**.
 
 ## Install (.deb package)
 

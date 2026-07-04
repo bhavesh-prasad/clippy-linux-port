@@ -1,3 +1,14 @@
+clipy (0.2.2) noble; urgency=medium
+
+  * Auto-paste now reaches native Wayland apps. XTEST only delivers synthetic input to
+    XWayland/X11 windows, so pasting into Wayland-native apps did nothing. Added a
+    RemoteDesktop-portal injector (clipy/inject.py): one persistent portal session set up
+    at startup (GNOME prompts once; a saved restore-token keeps it silent afterwards),
+    injecting Ctrl+V via NotifyKeyboardKeycode. XTEST kept as an X11/XWayland fallback.
+    Verified end-to-end: paste lands in a native Wayland window driven by the daemon.
+
+ -- Bhavesh Prasad <prasadbhavesh7@gmail.com>  Sat, 04 Jul 2026 14:00:00 +0000
+
 clipy (0.2.1) noble; urgency=medium
 
   * Auto-paste on select now actually pastes. Selecting a history/snippet entry
