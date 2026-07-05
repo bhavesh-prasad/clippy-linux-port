@@ -1,0 +1,113 @@
+# CI pipeline for clipy-linux-port
+#
+# Runs the full unit-test suite on every push and pull request.
+# Ubuntu 24.04 is required because the project depends on GTK4, GLib, and the
+# GNOME D-Bus session ecosystem — libraries that are pre-installed or trivially
+# available on that image but absent on macOS/Windows runners.
+
+name: Tests
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+    branches: ["**"]
+
+jobs:
+  test:
+    name: Run unit tests
+    runs-on: ubuntu-24.04
+
+    env:
+      # Point GDK at the Xvfb display so GTK4 can initialise when imported
+      # (some dbusmenu tests call GLib.Variant which triggers the GType system).
+      DISPLAY: ":99"
+      GDK_BACKEND: x11
+
+    steps:
+      # ------------------------------------------------------------------ #
+      # 1. Check out the repository
+      # ------------------------------------------------------------------ #
+      - name: Checkout source
+        uses: actions/checkout@v4
+
+      # ------------------------------------------------------------------ #
+      # 2. Install system-level GTK4 / GLib / D-Bus dependencies.
+      #    python3-gi   — GObject Introspection Python bindings (gi.repository)
+      #    python3-gi-cairo — Cairo surface support (pulled in by some gi imports)
+      #    gir1.2-gtk-4.0  — GTK4 typelib
+      #    gir1.2-glib-2.0 — GLib/GObject/GVariant typelibs
+      #    libgirepository1.0-dev — needed to build any gi-dependent packages
+      #    dbus-x11     — provides dbus-run-session and dbus-launch
+      #    at-spi2-core — accessibility bus required by some GTK initialisations
+      #    xvfb         — virtual framebuffer so GTK can open a display
+      # ------------------------------------------------------------------ #
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update -y
+          sudo apt-get install -y \
+            python3-gi \
+            python3-gi-cairo \
+            gir1.2-gtk-4.0 \
+            gir1.2-glib-2.0 \
+            libgirepository1.0-dev \
+            dbus-x11 \
+            at-spi2-core \
+            xvfb
+
+      # ------------------------------------------------------------------ #
+      # 3. Start Xvfb so that GDK can connect to a display.
+      #    The dbus-run-session wrapper (step 6) creates a private D-Bus
+      #    session bus automatically, so no manual dbus-launch is needed.
+      # ------------------------------------------------------------------ #
+      - name: Start Xvfb virtual display
+        run: |
+          Xvfb :99 -screen 0 1024x768x24 &
+          # Give Xvfb a moment to become ready before GTK tries to connect.
+          sleep 1
+
+      # ------------------------------------------------------------------ #
+      # 4. Install pytest (the only Python-level test dependency).
+      #    All other imports — gi, GLib, etc. — come from the system packages
+      #    installed above; pip is not involved for those.
+      # ------------------------------------------------------------------ #
+      - name: Install pytest
+        run: pip install pytest
+
+      # ------------------------------------------------------------------ #
+      # 5. Make the clipy package importable from the repo root.
+      #    We do a lightweight editable install so that `import clipy` works
+      #    without modifying sys.path inside tests.
+      # ------------------------------------------------------------------ #
+      - name: Install clipy package (editable)
+        run: pip install --no-deps -e .
+        # If there is no setup.py / pyproject.toml the step will fail; that is
+        # acceptable — tests can still be discovered via PYTHONPATH below.
+        continue-on-error: true
+
+      # ------------------------------------------------------------------ #
+      # 6. Run the test suite inside a private D-Bus session.
+      #    dbus-run-session starts a temporary session bus, exports
+      #    DBUS_SESSION_BUS_ADDRESS, runs the command, then tears the bus
+      #    down cleanly. This satisfies the gi.repository.GLib requirement
+      #    in the dbusmenu tests without touching the host session bus.
+      # ------------------------------------------------------------------ #
+      - name: Run tests
+        run: |
+          # Ensure the package root is on the Python path in case the editable
+          # install step above was skipped.
+          export PYTHONPATH="${GITHUB_WORKSPACE}:${PYTHONPATH}"
+          dbus-run-session -- python3 -m pytest tests/ -v --tb=short
+
+      # ------------------------------------------------------------------ #
+      # 7. (Optional) Upload pytest output on failure for easier debugging.
+      # ------------------------------------------------------------------ #
+      - name: Upload test results on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results
+          path: |
+            .pytest_cache/
+            tests/
+          retention-days: 7
