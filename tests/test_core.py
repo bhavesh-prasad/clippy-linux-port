@@ -581,9 +581,9 @@ class DbusMenuTest(unittest.TestCase):
         _id, _props, children = menu._serialize(menu.root, 1, None)
         # There should be one direct child
         self.assertEqual(len(children), 1)
-        from gi.repository import GLib
-        # Unwrap the 'v' variant to get (id, props, grandchildren)
-        child_tuple = children[0].get_variant()
+        # children[0] is already GLib.Variant("(ia{sv}av)", ...) — _serialize returns
+        # the raw list, not the GetLayout reply envelope, so no .get_variant() unwrap needed.
+        child_tuple = children[0]  # type: GLib.Variant("(ia{sv}av)")
         grandchildren = child_tuple.get_child_value(2)  # the av of grandchildren
         self.assertEqual(grandchildren.n_children(), 0)
 
