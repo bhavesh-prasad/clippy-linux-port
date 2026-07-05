@@ -23,7 +23,6 @@ from .sni.dbusmenu import DbusMenu, MenuItem
 from .sni.item import StatusNotifierItem
 from .ui.snippet_window import SnippetWindow
 from .ui.preferences_window import PreferencesWindow
-from .ui.popup import HistoryPopup, SnippetPopup
 
 AUTOSTART_PATH = config._xdg("XDG_CONFIG_HOME", ".config") / "autostart" / "clipy-linux.desktop"
 
@@ -261,7 +260,7 @@ class ClipyApplication(Gtk.Application):
         app_l = app.lower()
         return any(x.strip().lower() in app_l for x in self.settings.exclude_apps if x.strip())
 
-    def select_history_item(self, item) -> None:
+    def select_history_item(self, item, paste: bool = True) -> None:
         if not self.monitor:
             return
         if item.kind == "image" and item.image_path:
@@ -272,33 +271,39 @@ class ClipyApplication(Gtk.Application):
             # Move the chosen entry to the top of the history (Clipy behaviour).
             self.store.touch_history(item.id)
             self.rebuild_menu()
-        if self.settings and self.settings.paste_after_select:
+        if paste and self.settings and self.settings.paste_after_select:
             self._try_paste()
 
-    def paste_text(self, text: str) -> None:
+    def paste_text(self, text: str, paste: bool = True) -> None:
         if self.monitor:
             self.monitor.set_text(text)
-            if self.settings and self.settings.paste_after_select:
+            if paste and self.settings and self.settings.paste_after_select:
                 self._try_paste()
+
+    def wants_auto_paste(self) -> bool:
+        return bool(self.settings and self.settings.paste_after_select)
+
+    def paste_now(self) -> bool:
+        """Inject Ctrl+V once, immediately (no timer). Portal first (reaches native
+        Wayland apps), XTEST fallback for X11/XWayland. Callers are responsible for
+        having closed our popup and returned focus to the target app first."""
+        try:
+            if getattr(self, "injector", None) and self.injector.paste():
+                return False
+            from .paste import send_paste
+            send_paste()
+        except Exception:
+            pass  # clipboard is set regardless; user can paste manually
+        return False
 
     def _try_paste(self) -> None:
         """Auto-paste (Ctrl+V) into the target app after focus leaves our popup.
 
         Deferred slightly so the popup is gone and focus has returned to the app the
-        user was in; otherwise the synthesised Ctrl+V would land on the popup.
+        user was in; otherwise the synthesised Ctrl+V would land on the popup. Used by
+        the tray menu; the cursor menu drives paste_now() on a deterministic sequence.
         """
-        def do_paste() -> bool:
-            try:
-                # Portal injection first (reaches native Wayland apps); XTEST fallback
-                # covers X11/XWayland if the portal isn't ready yet.
-                if getattr(self, "injector", None) and self.injector.paste():
-                    return False
-                from .paste import send_paste
-                send_paste()
-            except Exception:
-                pass  # clipboard is set regardless; user can paste manually
-            return False
-        GLib.timeout_add(140, do_paste)
+        GLib.timeout_add(140, self.paste_now)
 
     def clear_history(self) -> None:
         if not self.store:
@@ -342,28 +347,26 @@ class ClipyApplication(Gtk.Application):
         return win
 
     def show_history(self) -> None:
-        # Compact popup at the mouse cursor, Clipy-style.
-        self._show_popup(HistoryPopup)
+        # Native menu at the mouse cursor (history + snippets + actions), like Clipy.
+        self._show_cursor_menu("full")
 
     def show_menu(self) -> None:
-        # The tray left-click shows the full dbusmenu; the "menu" hotkey opens the
-        # history popup at the cursor (the primary interaction).
-        self.show_history()
+        self._show_cursor_menu("full")
 
     def show_snippets(self) -> None:
-        self._show_popup(SnippetPopup)
+        self._show_cursor_menu("snippets")
 
-    def _show_popup(self, factory) -> None:
-        old = self._windows.pop("popup", None)
+    def _show_cursor_menu(self, kind: str) -> None:
+        from .ui.cursor_menu import CursorMenu
+        old = self._windows.pop("cursor_menu", None)
         if old is not None:
             try:
-                old.close()
+                old._close()
             except Exception:
                 pass
-        popup = factory(self)
-        self._windows["popup"] = popup
-        popup.connect("close-request", lambda *_: self._windows.pop("popup", None) and False)
-        popup.show_at_cursor()
+        menu = CursorMenu(self, kind)
+        self._windows["cursor_menu"] = menu
+        menu.show_at_cursor()
 
     def show_snippets_manager(self) -> None:
         self._show_singleton("snippets", lambda: SnippetWindow(self)).present()
@@ -372,9 +375,7 @@ class ClipyApplication(Gtk.Application):
         self._show_singleton("preferences", lambda: PreferencesWindow(self)).present()
 
     def _refresh_open_history(self) -> None:
-        popup = self._windows.get("popup")
-        if isinstance(popup, HistoryPopup) and popup.get_realized():
-            popup.populate()
+        return  # cursor menu is rebuilt each time it opens
 
     # -- settings side effects ------------------------------------------
     def apply_hotkeys(self) -> None:

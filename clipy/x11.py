@@ -162,6 +162,42 @@ def move_and_focus(xid: int, x: int, y: int) -> bool:
         _close(dpy)
 
 
+def get_input_focus() -> int:
+    """Return the X window id that currently holds the input focus (0 if unknown).
+
+    Under XWayland this reports X-level focus only; native Wayland apps are invisible to
+    it, but capturing/restoring it still helps X11/XWayland targets and is harmless for
+    Wayland ones (Mutter restores Wayland focus itself when our popup unmaps)."""
+    X = _lib()
+    if not X:
+        return 0
+    dpy = X.XOpenDisplay(None)
+    if not dpy:
+        return 0
+    try:
+        foc = ctypes.c_ulong(); rev = ctypes.c_int()
+        X.XGetInputFocus(dpy, ctypes.byref(foc), ctypes.byref(rev))
+        return int(foc.value)
+    finally:
+        _close(dpy)
+
+
+def set_input_focus(window: int) -> bool:
+    """Give the input focus back to a previously-focused X window."""
+    X = _lib()
+    if not X or not window:
+        return False
+    dpy = X.XOpenDisplay(None)
+    if not dpy:
+        return False
+    try:
+        X.XSetInputFocus(dpy, window, _REVERT_TO_PARENT, 0)
+        X.XFlush(dpy)
+        return True
+    finally:
+        _close(dpy)
+
+
 def _wm_class(dpy, window) -> str | None:
     X = _X
     if not window:

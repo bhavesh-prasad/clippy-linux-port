@@ -1,3 +1,32 @@
+clipy (0.2.4) noble; urgency=medium
+
+  * Fix: auto-paste on select was unreliable — the entry reached the clipboard but the
+    synthesised Ctrl+V usually did nothing, so you had to press Ctrl+V yourself. Root cause
+    was a focus-return race: the cursor menu steals keyboard focus while open, and the old
+    code closed the menu asynchronously while pasting on an independent 140ms timer, so the
+    keystroke fired before the compositor handed focus back to your app (and thus went
+    nowhere on native Wayland). Selecting an entry now runs a deterministic sequence —
+    close the menu, restore focus to the previously-focused window (clipy/x11.py
+    get/set_input_focus), then inject Ctrl+V once after a short settle (paste_now()).
+    Verified through the real cursor-menu code path pasting into a native Wayland app:
+    10/10 successful selections (was intermittent before).
+
+ -- Bhavesh Prasad <prasadbhavesh7@gmail.com>  Sun, 05 Jul 2026 17:30:00 +0000
+
+clipy (0.2.3) noble; urgency=medium
+
+  * The history/snippets hotkey now opens a NATIVE MENU AT THE CURSOR, matching Clipy's
+    macOS menu exactly: numbered history entries (folders of ten — "0 - 9", "10 - 19" —
+    once there are more than ten), snippet folders as submenus, then Clear History / Edit
+    Snippets / Preferences / Quit. This replaces the search-box popup window, which did not
+    resemble Clipy's actual UI. Built with GtkPopoverMenu anchored to a 1x1 override-redirect
+    host placed at the pointer via libX11.
+  * Verified end-to-end: selecting an entry sets the clipboard and pastes it into the
+    focused native-Wayland app through the RemoteDesktop portal (Ctrl+V), with the portal
+    session restored silently from the saved token on startup.
+
+ -- Bhavesh Prasad <prasadbhavesh7@gmail.com>  Sun, 05 Jul 2026 16:45:00 +0000
+
 clipy (0.2.2) noble; urgency=medium
 
   * Auto-paste now reaches native Wayland apps. XTEST only delivers synthetic input to
