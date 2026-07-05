@@ -1,0 +1,78 @@
+# Release pipeline for clipy-linux-port
+#
+# Builds clipy_<version>_all.deb via packaging/build-deb.sh and publishes it
+# as a GitHub Release. Triggers on pushing a version tag (vX.Y.Z); the tag
+# must match the top entry of packaging/changelog, which is build-deb.sh's
+# single source of truth for the version number. Can also be run manually.
+
+name: Release Debian Package
+
+on:
+  push:
+    tags:
+      - "v*.*.*"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build-and-release:
+    name: Build .deb and publish release
+    runs-on: ubuntu-24.04
+
+    steps:
+      # ------------------------------------------------------------------ #
+      # 1. Check out the repository
+      # ------------------------------------------------------------------ #
+      - name: Checkout source
+        uses: actions/checkout@v4
+
+      # ------------------------------------------------------------------ #
+      # 2. Read the version from packaging/changelog (same logic
+      #    build-deb.sh uses) so the release name/tag/asset stay in sync
+      #    with whatever the package actually reports.
+      # ------------------------------------------------------------------ #
+      - name: Determine version from changelog
+        id: version
+        run: |
+          VERSION="$(awk 'NR==1{gsub(/[()]/,""); print $2; exit}' packaging/changelog)"
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+
+      # ------------------------------------------------------------------ #
+      # 3. On a tag push, fail fast if the tag and changelog disagree —
+      #    this catches "forgot to bump the changelog" before it ships a
+      #    release with a mismatched name.
+      # ------------------------------------------------------------------ #
+      - name: Verify tag matches changelog version
+        if: github.event_name == 'push'
+        run: |
+          TAG="${GITHUB_REF_NAME#v}"
+          if [ "$TAG" != "${{ steps.version.outputs.version }}" ]; then
+            echo "::error::Tag v$TAG does not match packaging/changelog version ${{ steps.version.outputs.version }}"
+            exit 1
+          fi
+
+      # ------------------------------------------------------------------ #
+      # 4. Build the package. dpkg-deb ships preinstalled on the ubuntu-24.04
+      #    runner, so no extra system packages are needed (pure-Python
+      #    arch:all build, per build-deb.sh's own header comment).
+      # ------------------------------------------------------------------ #
+      - name: Build .deb package
+        run: packaging/build-deb.sh
+
+      # ------------------------------------------------------------------ #
+      # 5. Publish (or create) the GitHub Release and attach the .deb.
+      #    generate_release_notes fills in a changelog of commits since the
+      #    previous tag; the changelog entry itself lives in the .deb's
+      #    /usr/share/doc/clipy/changelog.gz for anyone who wants detail.
+      # ------------------------------------------------------------------ #
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          name: clipy ${{ steps.version.outputs.version }}
+          tag_name: v${{ steps.version.outputs.version }}
+          files: dist/clipy_${{ steps.version.outputs.version }}_all.deb
+          generate_release_notes: true
